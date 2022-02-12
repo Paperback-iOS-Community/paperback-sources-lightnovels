@@ -169,7 +169,7 @@ export class FreeWebNovel extends Source {
     async getSearchResults(query: SearchRequest, metadata: any): Promise<PagedResults> {
         if(!query.title || query.title.length < 3) return createPagedResults({ results: [] })
         const request = createRequestObject({
-            url: `${WEBSITE_URL}/search/?searchkey=${encodeURIComponent(query.title)}`,
+            url: `${WEBSITE_URL}/search/${query.title === undefined ? "" : `?searchkey=${encodeURIComponent(query.title)}`}`,
             method: 'POST',
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
