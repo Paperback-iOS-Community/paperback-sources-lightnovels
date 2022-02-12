@@ -1,0 +1,48 @@
+{
+  "name": "extensions-jimiswaytooepic",
+  "repositoryName": "JimIsWayTooEpic's Light Novel Extensions",
+  "version": "1.0.0",
+  "description": "JimIsWayTooEpic's Light Novel Extensions for Paperback",
+  "main": "index.js",
+  "GITHUB_REPOSITORY": "",
+  "baseURL": "https://jimphieffer.com/paperback-lightnovels/",
+  "scripts": {
+    "bundle": "paperback bundle",
+    "serve": "paperback serve",
+    "eslint": "eslint ./src/FreeWebNovel/*.ts",
+    "test": "paperback test",
+    "esinit": "eslint --init"
+  },
+  "author": "JimIsWayTooEpic",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/Paperback-iOS/extensions-official/issues"
+  },
+  "homepage": "https://github.com/Paperback-iOS/extensions-official#readme",
+  "devDependencies": {
+    "@types/mocha": "^9.1.0",
+    "@typescript-eslint/eslint-plugin": "^5.11.0",
+    "@typescript-eslint/parser": "^5.11.0",
+    "eslint": "^7.27.0",
+    "eslint-plugin-modules-newline": "^0.0.6",
+    "typescript": "^4.5.5"
+  },
+  "dependencies": {
+    "ajax": "0.0.4",
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "cheerio": "^1.0.0-rc.10",
+    "cloudflare-scraper": "^1.0.8",
+    "image-decode": "^1.2.2",
+    "image-encode": "^1.3.1",
+    "mocha": "^9.2.0",
+    "node-gyp": "^8.4.1",
+    "node-pre-gyp": "^0.17.0",
+    "paperback-cli": "^2.0.0-alpha.11",
+    "paperback-extensions-common": "^4.3.5",
+    "puppeteer": "^13.3.1",
+    "request": "^2.88.2",
+    "text-to-image": "^5.1.1",
+    "ts-mocha": "^9.0.2"
+  }
+}

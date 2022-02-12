@@ -1,0 +1,9 @@
+bundles/
+coverage/
+node_modules/
+src/tests/
+test.*
+.DS_Store
+.vscode
+tmp/
+upload.sh
