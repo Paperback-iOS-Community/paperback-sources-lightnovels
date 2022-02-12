@@ -157,7 +157,7 @@ export class FreeWebNovel extends Source {
         const text = textSegments.join('\n')
         const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager))-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`).split.length/(await getLinesPerPage(this.stateManager)))
         for(let i = 1; i <= lines; i++) {
-            pages.push(`${WEBSITE_URL}/${chapterId}.html?ttiparse&ttipage=${i}`)
+            pages.push(`${WEBSITE_URL}/${chapterId}.html?ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`)
         }
         return createChapterDetails({
             id: chapterId,
@@ -251,12 +251,12 @@ export class FreeWebNovel extends Source {
 }
 
 export const FreeWebNovelInfo: SourceInfo = {
-    version: '1.0.0',
+    version: '1.0.1',
     name: 'FreeWebNovel',
     icon: 'icon.jpg',
     author: 'JimIsWayTooEpic',
     authorWebsite: 'https://jimphieffer.com/paperback-lightnovels/',
-    description: 'EXPERIMENTAL Source for FreeWebNovel. Created by JimIsWayTooEpic.\nWARNING: If you increase the image width, it will take longer to load.\nAfter you change style settings, make sure to clear your image cache so they apply to previously read novel chapters.',
+    description: 'EXPERIMENTAL Source for FreeWebNovel. Created by JimIsWayTooEpic.\n\nWARNING: If you increase the image width, it will take longer to load.',
     contentRating: ContentRating.ADULT,
     websiteBaseURL: WEBSITE_URL,
     language: "English",
@@ -295,6 +295,9 @@ async function getImageWidth(stateManager: SourceStateManager): Promise<number> 
 }
 async function getLinesPerPage(stateManager: SourceStateManager): Promise<number> {
     return await stateManager.retrieve('lines_per_page') as number ?? 60
+}
+async function getSettingsString(stateManager: SourceStateManager) {
+    return `${await getTextColor(stateManager)},${await getBackgroundColor(stateManager)},${await getFontSize(stateManager)},${await getFont(stateManager)},${await getHorizontalPadding(stateManager)},${await getVerticalPadding(stateManager)},${await getImageWidth(stateManager)},${await getLinesPerPage(stateManager)}`
 }
 
 async function styleSettings(stateManager: SourceStateManager): Promise<Section> {
