@@ -127,13 +127,13 @@ function splitColor(color: number): number[] {
  * @param options an object containing the style options for the image
  * @returns a 3d array containing color data for each pixel, used to pass into writeImageData
  */
-function writeText(text: string, maxWidth: number, constantWidth: boolean, lines: number, page: number, options: ImageOptions): number[][][] {
+function writeText(text: string, page: number, options: ImageOptions): number[][][] {
     if(typeof options.padding === "number") options.padding = {horizontal: options.padding, vertical: options.padding}
     text = text.replace(/[^\x00-\x7F]/g, "")
-    let {split, width} = spliterate(text, maxWidth-options.padding.horizontal*2, options.font)
-    split = split.slice((page-1)*lines, page*lines > split.length ? undefined : page*lines)
+    let {split, width} = spliterate(text, options.width-options.padding.horizontal*2, options.font)
+    split = split.slice((page-1)*options.lines, page*options.lines > split.length ? undefined : page*options.lines)
     width += options.padding.horizontal*2
-    if(constantWidth) width = maxWidth
+    if(options.constantWidth) width = options.width
     const height = split.length*fonts[options.font].height + options.padding.vertical*2
     let img: number[][][] = []
     let lineAt = -1
@@ -229,7 +229,7 @@ export function interceptResponse(response: Response, cheerio: any, settings: Im
             tarr.push(decodeHTMLEntity($(i).text()))
         }
         let pageText = tarr.join("\n")
-        response.rawData = createRawData(writeImageData(writeText(pageText, 800, true, 60, pageNum, settings)))
+        response.rawData = createRawData(writeImageData(writeText(pageText, pageNum, settings)))
         response.headers['content-type'] = 'image/bmp'
     }
     return response
@@ -239,5 +239,8 @@ export interface ImageOptions {
     textColor: number,
     backgroundColor: number,
     font: string,
-    padding: number | {horizontal: number, vertical: number}
+    padding: number | {horizontal: number, vertical: number},
+    width: number,
+    constantWidth: boolean
+    lines: number
 }

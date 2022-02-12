@@ -25,8 +25,6 @@ import { decodeHTMLEntity, interceptResponse, spliterate } from "./FreeWebNovelR
 
 const WEBSITE_URL = "https://freewebnovel.com"
 const REQUEST_RETRIES = 3
-const MAX_PAGE_WIDTH = 800
-const LINES_PER_PAGE = 60.0
 const SETTINGS: any = {
     textColor: ["White", "Light Gray", "Brown", "Dark Gray", "Black"],
     backgroundColor: ["White", "Sepia", "Dark Gray", "Black"],
@@ -46,7 +44,7 @@ const COLORS: any = {
 export class FreeWebNovel extends Source {
     requestManager: RequestManager = createRequestManager({
         requestsPerSecond: 10,
-        requestTimeout: 5000,
+        requestTimeout: 10000,
         interceptor: {
             interceptRequest: async (request) => {return request},
             interceptResponse: async (response) => {return interceptResponse(response, this.cheerio, {
@@ -56,7 +54,10 @@ export class FreeWebNovel extends Source {
                 padding: {
                     horizontal: await getHorizontalPadding(this.stateManager),
                     vertical: await getVerticalPadding(this.stateManager)
-                }
+                },
+                width: await getImageWidth(this.stateManager),
+                constantWidth: true,
+                lines: await getLinesPerPage(this.stateManager)
             })}
         }
     })
@@ -155,7 +156,7 @@ export class FreeWebNovel extends Source {
             textSegments.push(decodeHTMLEntity($(chapterTextSeg).text()))
         }
         const text = textSegments.join('\n')
-        const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), MAX_PAGE_WIDTH-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`).split.length/LINES_PER_PAGE)
+        const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager))-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`).split.length/(await getLinesPerPage(this.stateManager)))
         for(let i = 1; i <= lines; i++) {
             pages.push(`${WEBSITE_URL}/${chapterId}.html?ttiparse&ttipage=${i}`)
         }
@@ -163,7 +164,7 @@ export class FreeWebNovel extends Source {
             id: chapterId,
             mangaId: mangaId,
             pages: pages,
-            longStrip: true
+            longStrip: false
         })
     }
     async getSearchResults(query: SearchRequest, metadata: any): Promise<PagedResults> {
@@ -245,12 +246,6 @@ export class FreeWebNovel extends Source {
             metadata: lastPage ? undefined : {page: page + 1}
         })
     }
-    override getCloudflareBypassRequest(): Request {
-        return createRequestObject({
-            url: WEBSITE_URL,
-            method: 'GET'
-        })
-    }
     override getMangaShareUrl(mangaId: string): string {
         return `${WEBSITE_URL}/${mangaId}.html`
     }
@@ -262,7 +257,7 @@ export const FreeWebNovelInfo: SourceInfo = {
     icon: 'icon.jpg',
     author: 'JimIsWayTooEpic',
     authorWebsite: 'https://jimphieffer.com/paperback-lightnovels/',
-    description: 'EXPERIMENTAL Source for FreeWebNovel. Created by JimIsWayTooEpic.',
+    description: 'EXPERIMENTAL Source for FreeWebNovel. Created by JimIsWayTooEpic.\nWARNING: If you increase the image width, it will take longer to load.\nAfter you change style settings, make sure to clear your image cache so they apply to previously read novel chapters.',
     contentRating: ContentRating.ADULT,
     websiteBaseURL: WEBSITE_URL,
     language: "English",
@@ -295,6 +290,12 @@ async function getHorizontalPadding(stateManager: SourceStateManager): Promise<n
 }
 async function getVerticalPadding(stateManager: SourceStateManager): Promise<number> {
     return await stateManager.retrieve('vertical_padding') as number ?? 20
+}
+async function getImageWidth(stateManager: SourceStateManager): Promise<number> {
+    return await stateManager.retrieve('image_width') as number ?? 800
+}
+async function getLinesPerPage(stateManager: SourceStateManager): Promise<number> {
+    return await stateManager.retrieve('lines_per_page') as number ?? 60
 }
 
 async function styleSettings(stateManager: SourceStateManager): Promise<Section> {
@@ -360,6 +361,22 @@ async function styleSettings(stateManager: SourceStateManager): Promise<Section>
                                             min: 0,
                                             max: 100,
                                             step: 5
+                                        }),
+                                        createStepper({
+                                            label: 'Image Width',
+                                            value: await getImageWidth(stateManager),
+                                            id: 'image_width',
+                                            min: 800,
+                                            max: 1600,
+                                            step: 50
+                                        }),
+                                        createStepper({
+                                            label: 'Lines Per Page',
+                                            value: await getLinesPerPage(stateManager),
+                                            id: 'lines_per_page',
+                                            min: 1,
+                                            max: 100,
+                                            step: 1
                                         })
                                     ]
                                 }
@@ -373,7 +390,9 @@ async function styleSettings(stateManager: SourceStateManager): Promise<Section>
                             stateManager.store('font_size', values.font_size[0]),
                             stateManager.store('font', values.font[0]),
                             stateManager.store('horizontal_padding', values.horizontal_padding),
-                            stateManager.store('vertical_padding', values.vertical_padding)
+                            stateManager.store('vertical_padding', values.vertical_padding),
+                            stateManager.store('image_width', values.image_width),
+                            stateManager.store('lines_per_page', values.lines_per_page)
                         ]).then()
                     },
                     validate: async (values: any): Promise<boolean> => {
