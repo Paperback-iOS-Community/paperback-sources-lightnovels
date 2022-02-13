@@ -7,3 +7,4 @@ test.*
 tmp/
 upload.sh
 hidden/
+bundles/
