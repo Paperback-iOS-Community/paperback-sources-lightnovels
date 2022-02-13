@@ -618,7 +618,7 @@ exports.FreeWebNovelInfo = {
     name: 'FreeWebNovel',
     icon: 'icon.jpg',
     author: 'JimIsWayTooEpic',
-    authorWebsite: 'https://jimphieffer.com/paperback-lightnovels/',
+    authorWebsite: 'https://phiefferj24.github.io/paperback-sources-lightnovels/bundles/',
     description: 'EXPERIMENTAL Source for FreeWebNovel. Created by JimIsWayTooEpic.\n\nWARNING: If you increase the image width, it will take longer to load.',
     contentRating: paperback_extensions_common_1.ContentRating.ADULT,
     websiteBaseURL: WEBSITE_URL,
