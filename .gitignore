@@ -6,3 +6,4 @@ test.*
 .vscode
 tmp/
 upload.sh
+hidden/
