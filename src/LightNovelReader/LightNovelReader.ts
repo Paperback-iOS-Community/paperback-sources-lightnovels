@@ -20,9 +20,9 @@ import {
     FormRow
 } from 'paperback-extensions-common'
 
-import { decodeHTMLEntity, interceptResponse, spliterate } from "./FreeWebNovelResponseInterceptor";
+import { decodeHTMLEntity, interceptResponse, spliterate } from "./LightNovelReaderResponseInterceptor";
 
-const WEBSITE_URL = "https://freewebnovel.com"
+const WEBSITE_URL = "https://lightnovelreader.org"
 const REQUEST_RETRIES = 3
 const SETTINGS: any = {
     textColor: ["White", "Light Gray", "Brown", "Dark Gray", "Black"],
@@ -40,7 +40,7 @@ const COLORS: any = {
     black: 0x000000
 }
 
-export class FreeWebNovel extends Source {
+export class LightNovelReader extends Source {
     requestManager: RequestManager = createRequestManager({
         requestsPerSecond: 10,
         requestTimeout: 10000,
@@ -66,93 +66,93 @@ export class FreeWebNovel extends Source {
     }
     async getMangaDetails(mangaId: string): Promise<Manga> { 
         const request = createRequestObject({
-            url: `${WEBSITE_URL}/${mangaId}.html`,
+            url: `${WEBSITE_URL}/${mangaId}`,
             method: 'GET',
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         const $ = this.cheerio.load(response.data)
-        const htmlInfo = $('div.m-book1')
-        const titles: string[] = [$('h1.tit', htmlInfo).text()]
-        const tagStrings: string[] = []
+        const novel = $('div.container > div > div')
+        const titles = [$('div.section-header > div.flex > h1', novel).text()]
+        const description = $('div.text-sm > p', novel).text()
+        const details = $('div.flex > div.flex', novel)
         let status = MangaStatus.UNKNOWN
         let author: string | undefined = undefined
-        const list = $('div.m-imgtxt > div.txt > div', htmlInfo).toArray()
-        for(let object of list) {
-            console.log(`checking "${$('span.glyphicon', object).attr('title')}", attribute is "${$('div.right', object).text()}"`)
-            switch($('span.glyphicon', object).attr('title')) {
-                case 'Alternative names': 
-                    titles.push(...($('div.right', object).text().split(', ')))
-                    break
-                case 'Author': 
-                    author = $('div.right', object).text()
-                    break
-                case 'Genre': 
-                    tagStrings.push(...($('div.right', object).text().split(', ')))
-                    break
-                case 'Status': 
-                    status = $('div.right', object).text().toLowerCase() === 'completed' ? MangaStatus.COMPLETED : MangaStatus.ONGOING 
-                    break
-            }
-        }
+        let artist: string | undefined = undefined
         const tags: Tag[] = []
-        for(let tag of tagStrings) {
-            tags.push(createTag({ id: tag, label: tag.replace(/\n/g, "") }))
+        for(let object of $('dl.text-xs > div', details).toArray()) {
+            switch($('dt', object).text()) {
+                case "Alternative Names:": titles.push($('dd > a', object).text()); break
+                case "Status:": status = $('dd', object).text() === "Ongoing" ? MangaStatus.ONGOING : MangaStatus.COMPLETED; break
+                case "Genres":
+                    for(let tag of $('dd > a', object).toArray()) {
+                        tags.push(createTag({
+                            id: $(tag).text().toLowerCase(),
+                            label: $(tag).text()
+                        }))
+                    }
+                    break
+                case "Author(s):": author = $('dd > a', object).text(); break
+                case "Artist(s):": artist = $('dd > a', object).text(); break
+            }
         }
         return createManga({
             id: mangaId,
             titles: titles,
-            image: $('div.pic > img', htmlInfo).attr('src'),
+            image: $('a > img', details).attr('src'),
             status: status,
             author: author,
-            tags: tags.length === 0 ? undefined : [createTagSection({ id: 'genres', label: 'Genres', tags: tags })]
+            artist: artist,
+            tags: tags.length === 0 ? undefined : [createTagSection({ id: 'genres', label: 'Genres', tags: tags })],
+            desc: description
         })
     }
     async getChapters(mangaId: string): Promise<Chapter[]> {
         const request = createRequestObject({
-            url: `${WEBSITE_URL}/${mangaId}.html`,
+            url: `${WEBSITE_URL}/${mangaId}`,
             method: 'GET',
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         let $ = this.cheerio.load(response.data)
-        const chapterPages = $('div.page > select > option').toArray()
+        const hiddenId = $('div.js-load-chapters').data('novel-id')
+        console.log(`hiddenId: ${hiddenId}`)
+        const newRequest = createRequestObject({
+            url: `${WEBSITE_URL}/novel/load-chapters`,
+            method: 'POST',
+            headers: {
+                'content-type': 'application/x-www-form-urlencoded',
+                'x-requested-with': 'XMLHttpRequest'
+            },
+            data: `mangaId=${hiddenId}`
+        })
+        const newResponse = await this.requestManager.schedule(newRequest, REQUEST_RETRIES)
+        $ = this.cheerio.load(newResponse.data)
+        const chapterRows = $('div > div.grid').toArray()
         const chapters: Chapter[] = []
-        const responses: Promise<Response>[] = []
-        while(chapterPages.length > 0) {
-            const option = chapterPages.shift()
-            const newRequest = createRequestObject({
-                url: `${WEBSITE_URL}${$(option).attr('value')}`,
-                method: 'GET',
-            })
-            responses.push(this.requestManager.schedule(newRequest, REQUEST_RETRIES))
-        }
-        (await Promise.all(responses)).forEach((newResponse) => {
-            $ = this.cheerio.load(newResponse.data)
-            const embeddedChapters = $('div.m-newest2 > ul.ul-list5 > li').toArray()
-            for(let embeddedChapter of embeddedChapters) {
-                const link = $('a', embeddedChapter).attr('href')
+        console.log(`data: ${$.html()}, headers ${newResponse.request.headers!['x-requested-with']}`)
+        for(let chapterRow of chapterRows) {
+            for(let chapter of $('a', chapterRow).toArray()) {
                 chapters.push(createChapter({
-                    id: link.substring(1, link.indexOf('.')),
+                    id: $(chapter).attr('src'),
                     mangaId: mangaId,
-                    chapNum: isNaN(parseInt(link.substring(link.lastIndexOf('-')+1, link.indexOf('.')))) ? 0 : parseInt(link.substring(link.lastIndexOf('-')+1, link.indexOf('.'))),
-                    langCode: LanguageCode.ENGLISH,
-                    name: $('a', embeddedChapter).text()
+                    chapNum: parseInt($('div > span', chapter).text().split(" ")[1]),
+                    langCode: LanguageCode.ENGLISH
                 }))
             }
-        })
+        }
         return chapters
     }
     async getChapterDetails(mangaId: string, chapterId: string): Promise<ChapterDetails> {
         const request = createRequestObject({
-            url: `${WEBSITE_URL}/${chapterId}.html`,
+            url: `${WEBSITE_URL}/${chapterId}`,
             method: 'GET',
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         const $ = this.cheerio.load(response.data)
         const pages: string[] = []
         const textSegments: string[] = []
-        const chapterText = $('div.txt > p').toArray()
+        const chapterText = $('article > p').toArray()
         for(let chapterTextSeg of chapterText) {
-            textSegments.push(decodeHTMLEntity($(chapterTextSeg).text()))
+            if($(chapterTextSeg).attr('class') !== "display-hide") textSegments.push(decodeHTMLEntity($(chapterTextSeg).text()))
         }
         const text = textSegments.join('\n')
         const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager))-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`).split.length/(await getLinesPerPage(this.stateManager)))
@@ -169,94 +169,111 @@ export class FreeWebNovel extends Source {
     async getSearchResults(query: SearchRequest, metadata: any): Promise<PagedResults> {
         if(!query.title || query.title.length < 3) return createPagedResults({ results: [] })
         const request = createRequestObject({
-            url: `${WEBSITE_URL}/search/${query.title === undefined ? "" : `?searchkey=${encodeURIComponent(query.title)}`}`,
+            url: `${WEBSITE_URL}/detailed-search`,
             method: 'POST',
+            headers: {
+                'content-type': 'application/x-www-form-urlencoded'
+            },
+            data: `search=${query.title ?? ""}`
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         const $ = this.cheerio.load(response.data)
-        const htmlResults = $('div.ss-custom > div').toArray()
+        const htmlResults = $('div.flex-1 > div.mb-4').toArray()
         const results: MangaTile[] = []
         for(let htmlResult of htmlResults) {
-            const a = $('div.pic > a', htmlResult)
             results.push(createMangaTile({
-                id: $(a).attr('href').substring(1).split('.')[0],
-                title: createIconText({ text: $('img', a).attr('title')}),
-                image: $('img', a).attr('src')
+                id: $('div.border-b > a', htmlResult).attr('href').substring(1),
+                title: createIconText({ text: $('div.border-b > a', htmlResult).text()}),
+                image: $('div.items-stretch > a > img', htmlResult).attr('src')
             }))
         }
         return createPagedResults({ results: results })
     }
     override async getHomePageSections(sectionCallback: (section: HomeSection) => void): Promise<void> {
-        const sections = [
-            createHomeSection({
-                id: 'latest-release-novel',
-                title: 'Recently Updated Novels',
-                view_more: true,
-            }),
-            createHomeSection({
-                id: 'most-popular-novel',
-                title: 'Most Popular Novels',
-                view_more: true,
+        let section = createHomeSection({
+            id: 'recently_updated',
+            title: 'Recently Updated Mangas',
+            view_more: false,
+        })
+        sectionCallback(section)
+        section.items = [
+            createMangaTile({
+                id: 'necropolis-immortal-895735',
+                title: createIconText({text: 'test'}),
+                image: ''
             })
         ]
-        for(let section of sections) {
-            const request = createRequestObject({
-                url: `${WEBSITE_URL}/${section.id}/`,
-                method: 'GET'
-            })
-            const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
-            const $ = this.cheerio.load(response.data)
-            sectionCallback(section)
-            const htmlResults = $('div.ss-custom > div').toArray()
-            const results: MangaTile[] = []
-            for(let htmlResult of htmlResults) {
-                const a = $('div.pic > a', htmlResult)
-                results.push(createMangaTile({
-                    id: $(a).attr('href').substring(1).split('.')[0],
-                    title: createIconText({ text: $('img', a).attr('title')}),
-                    image: $('img', a).attr('src')
-                }))
-            }
-            section.items = results
-            sectionCallback(section)
-        }
+        sectionCallback(section)
+        // const sections = [
+        //     createHomeSection({
+        //         id: 'latest-release-novel',
+        //         title: 'Recently Updated Novels',
+        //         view_more: true,
+        //     }),
+        //     createHomeSection({
+        //         id: 'most-popular-novel',
+        //         title: 'Most Popular Novels',
+        //         view_more: true,
+        //     })
+        // ]
+        // for(let section of sections) {
+        //     const request = createRequestObject({
+        //         url: `${WEBSITE_URL}/${section.id}/`,
+        //         method: 'GET'
+        //     })
+        //     const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
+        //     const $ = this.cheerio.load(response.data)
+        //     sectionCallback(section)
+        //     const htmlResults = $('div.ss-custom > div').toArray()
+        //     const results: MangaTile[] = []
+        //     for(let htmlResult of htmlResults) {
+        //         const a = $('div.pic > a', htmlResult)
+        //         results.push(createMangaTile({
+        //             id: $(a).attr('href').substring(1).split('.')[0],
+        //             title: createIconText({ text: $('img', a).attr('title')}),
+        //             image: $('img', a).attr('src')
+        //         }))
+        //     }
+        //     section.items = results
+        //     sectionCallback(section)
+        // }
     }
-    override async getViewMoreItems(homepageSectionId: string, metadata: any): Promise<PagedResults> {
-        const page = metadata?.page ?? 1
-        const request = createRequestObject({
-            url: `${WEBSITE_URL}/${homepageSectionId}/${page}/`,
-            method: 'GET'
-        })
-        const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
-        const $ = this.cheerio.load(response.data)
-        const lastPage = parseInt($('div.pages > ul > li').children('a').last().text()) === page
-        const htmlResults = $('div.ss-custom > div').toArray()
-        const results: MangaTile[] = []
-        for(let htmlResult of htmlResults) {
-            const a = $('div.pic > a', htmlResult)
-            results.push(createMangaTile({
-                id: $(a).attr('href').substring(1).split('.')[0],
-                title: createIconText({ text: $('img', a).attr('title')}),
-                image: $('img', a).attr('src')
-            }))
-        }
-        return createPagedResults({
-            results: results,
-            metadata: lastPage ? undefined : {page: page + 1}
-        })
-    }
+    // override async getViewMoreItems(homepageSectionId: string, metadata: any): Promise<PagedResults> {
+    //     const page = metadata?.page ?? 1
+    //     const request = createRequestObject({
+    //         url: `${WEBSITE_URL}/${homepageSectionId}/${page}/`,
+    //         method: 'GET'
+    //     })
+    //     const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
+    //     const $ = this.cheerio.load(response.data)
+    //     const lastPage = parseInt($('div.pages > ul > li').children('a').last().text()) === page
+    //     const htmlResults = $('div.ss-custom > div').toArray()
+    //     const results: MangaTile[] = []
+    //     for(let htmlResult of htmlResults) {
+    //         const a = $('div.pic > a', htmlResult)
+    //         results.push(createMangaTile({
+    //             id: $(a).attr('href').substring(1).split('.')[0],
+    //             title: createIconText({ text: $('img', a).attr('title')}),
+    //             image: $('img', a).attr('src')
+    //         }))
+    //     }
+    //     return createPagedResults({
+    //         results: results,
+    //         metadata: lastPage ? undefined : {page: page + 1}
+    //     })
+    // }
     override getMangaShareUrl(mangaId: string): string {
         return `${WEBSITE_URL}/${mangaId}.html`
     }
 }
 
-export const FreeWebNovelInfo: SourceInfo = {
-    version: '2.0.0',
-    name: 'FreeWebNovel',
-    icon: 'icon.jpg',
+export const LightNovelReaderInfo: SourceInfo = {
+    version: '1.0.1',
+    name: 'LightNovelReader',
+    icon: 'icon.png',
     author: 'JimIsWayTooEpic',
     authorWebsite: 'https://jimphieffer.com/paperback-lightnovels/',
-    description: 'EXPERIMENTAL Source for FreeWebNovel. Created by JimIsWayTooEpic.\n\nWARNING: If you increase the image width, it will take longer to load.',
+    description: 'EXPERIMENTAL Source for LightNovelReader. Created by JimIsWayTooEpic.\n\nWARNING: If you increase the image width, it will take longer to load.',
     contentRating: ContentRating.ADULT,
     websiteBaseURL: WEBSITE_URL,
     language: "English",
