@@ -1,22 +1,5 @@
 import { Response } from 'paperback-extensions-common'
-const fonts: any = {
-    sanfrancisco18: require('./external/sanfrancisco/sanfrancisco18.json'),
-    sanfrancisco24: require('./external/sanfrancisco/sanfrancisco24.json'),
-    sanfrancisco30: require('./external/sanfrancisco/sanfrancisco30.json'),
-    sanfrancisco36: require('./external/sanfrancisco/sanfrancisco36.json'),
-    arial18: require('./external/arial/arial18.json'),
-    arial24: require('./external/arial/arial24.json'),
-    arial30: require('./external/arial/arial30.json'),
-    arial36: require('./external/arial/arial36.json'),
-    georgia18: require('./external/georgia/georgia18.json'),
-    georgia24: require('./external/georgia/georgia24.json'),
-    georgia30: require('./external/georgia/georgia30.json'),
-    georgia36: require('./external/georgia/georgia36.json'),
-    timesnewroman18: require('./external/timesnewroman/timesnewroman18.json'),
-    timesnewroman24: require('./external/timesnewroman/timesnewroman24.json'),
-    timesnewroman30: require('./external/timesnewroman/timesnewroman30.json'),
-    timesnewroman36: require('./external/timesnewroman/timesnewroman36.json'),
-}
+import { fonts } from '../.fonts'
 
 const BMP_HEADER1 = [0x42, 0x4D]
 // insert 4 bytes of file size here, little-endian, 54 bytes header + img data size
