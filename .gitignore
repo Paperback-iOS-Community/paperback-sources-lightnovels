@@ -1,10 +1,10 @@
 coverage/
 node_modules/
 src/tests/
+bundles/
 test.*
 .DS_Store
 .vscode
 tmp/
 upload.sh
 hidden/
-bundles/
