@@ -101,7 +101,7 @@ export class FreeWebNovel extends Source {
         return createManga({
             id: mangaId,
             titles: titles,
-            image: $('div.pic > img', htmlInfo).attr('src'),
+            image: $('div.pic > img', htmlInfo).attr('src') ?? "",
             status: status,
             author: author,
             tags: tags.length === 0 ? undefined : [createTagSection({ id: 'genres', label: 'Genres', tags: tags })]
@@ -129,7 +129,7 @@ export class FreeWebNovel extends Source {
             $ = this.cheerio.load(newResponse.data)
             const embeddedChapters = $('div.m-newest2 > ul.ul-list5 > li').toArray()
             for(let embeddedChapter of embeddedChapters) {
-                const link = $('a', embeddedChapter).attr('href')
+                const link = $('a', embeddedChapter).attr('href') ?? ""
                 chapters.push(createChapter({
                     id: link.substring(1, link.indexOf('.')),
                     mangaId: mangaId,
@@ -180,9 +180,9 @@ export class FreeWebNovel extends Source {
             const a = $('div.pic > a', htmlResult)
             if($(a).attr('href') !== undefined) {
                 results.push(createMangaTile({
-                    id: $(a).attr('href').substring(1).split('.')[0],
-                    title: createIconText({ text: $('img', a).attr('title')}),
-                    image: $('img', a).attr('src')
+                    id: $(a).attr('href')?.substring(1).split('.')[0] ?? "",
+                    title: createIconText({ text: $('img', a).attr('title') ?? ""}),
+                    image: $('img', a).attr('src') ?? ""
                 }))
             }
         }
@@ -214,9 +214,9 @@ export class FreeWebNovel extends Source {
             for(let htmlResult of htmlResults) {
                 const a = $('div.pic > a', htmlResult)
                 results.push(createMangaTile({
-                    id: $(a).attr('href').substring(1).split('.')[0],
-                    title: createIconText({ text: $('img', a).attr('title')}),
-                    image: $('img', a).attr('src')
+                    id: $(a).attr('href')?.substring(1).split('.')[0] ?? "",
+                    title: createIconText({ text: $('img', a).attr('title') ?? ""} ),
+                    image: $('img', a).attr('src') ?? ""
                 }))
             }
             section.items = results
@@ -237,9 +237,9 @@ export class FreeWebNovel extends Source {
         for(let htmlResult of htmlResults) {
             const a = $('div.pic > a', htmlResult)
             results.push(createMangaTile({
-                id: $(a).attr('href').substring(1).split('.')[0],
-                title: createIconText({ text: $('img', a).attr('title')}),
-                image: $('img', a).attr('src')
+                id: $(a).attr('href')?.substring(1).split('.')[0] ?? "",
+                title: createIconText({ text: $('img', a).attr('title') ?? ""}),
+                image: $('img', a).attr('src') ?? ""
             }))
         }
         return createPagedResults({

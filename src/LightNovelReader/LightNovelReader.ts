@@ -99,7 +99,7 @@ export class LightNovelReader extends Source {
         return createManga({
             id: mangaId,
             titles: titles,
-            image: $('a > img', details).attr('src'),
+            image: $('a > img', details).attr('src') ?? "",
             status: status,
             author: author,
             artist: artist,
@@ -137,14 +137,14 @@ export class LightNovelReader extends Source {
         let volumeOn = 1
         for(let volume of volumes) {
             if($(volume).attr('x-show') === undefined) continue
-            volumeOn = parseInt($(volume).attr('x-show').split(" ").pop())
+            volumeOn = parseInt($(volume).attr('x-show')?.split(" ").pop() ?? "1")
             const chapterRows = $(volume).children().toArray()
             for(let chapterRow of chapterRows) {
                 for(let chapter of $('a', chapterRow).toArray()) {
                     chapters.push(createChapter({
-                        id: $(chapter).attr('href'),
+                        id: $(chapter).attr('href') ?? "",
                         mangaId: mangaId,
-                        chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1])) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1]),
+                        chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1] ?? "0"),
                         langCode: LanguageCode.ENGLISH,
                         volume: volumeOn
                     }))
@@ -195,9 +195,9 @@ export class LightNovelReader extends Source {
         const results: MangaTile[] = []
         for(let htmlResult of htmlResults) {
             results.push(createMangaTile({
-                id: $('div.border-gray-200 > a', htmlResult).attr('href').substring(1),
+                id: $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? "",
                 title: createIconText({ text: decodeHTMLEntity($('div.border-gray-200 > a', htmlResult).text())}),
-                image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
             }))
         }
         return createPagedResults({ results: results })
@@ -238,9 +238,9 @@ export class LightNovelReader extends Source {
                 const htmlResults = $('div.flex-1 > div.mb-4').toArray()
                 for(let htmlResult of htmlResults) {
                     results.push(createMangaTile({
-                        id: $('div.border-gray-200 > a', htmlResult).attr('href').substring(1),
+                        id: $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? "",
                         title: createIconText({ text: decodeHTMLEntity($('div.border-gray-200 > a', htmlResult).text()) }),
-                        image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                        image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
                     }))
                 }
             } 
@@ -248,13 +248,13 @@ export class LightNovelReader extends Source {
                 const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray()
                 const addedIds: string[] = []
                 for(let htmlResult of htmlResults) {
-                    const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href').substring(1)
+                    const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href')?.substring(1) ?? ""
                     if(!addedIds.includes(id)) {
                         results.push(createMangaTile({
                             id: id,
                             title: createIconText({ text: decodeHTMLEntity($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
                             subtitleText: createIconText({ text: decodeHTMLEntity($('a.truncate', htmlResult).text()) }),
-                            image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src')
+                            image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src') ?? ""
                         }))
                         addedIds.push(id)
                     }
@@ -272,18 +272,18 @@ export class LightNovelReader extends Source {
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         const $ = this.cheerio.load(response.data)
-        const lastPage = parseInt($('nav.pagination > a.pagination__item').last().attr('href').split('/').pop())
+        const lastPage = parseInt($('nav.pagination > a.pagination__item').last().attr('href')?.split('/').pop() ?? "1")
         const results: MangaTile[] = []
         const addedIds: string[] = metadata?.addedIds ?? []
         if(homepageSectionId.startsWith("ranking")) {
             const htmlResults = $('div.flex-1 > div.mb-4').toArray()
             for(let htmlResult of htmlResults) {
-                const id = $('div.border-gray-200 > a', htmlResult).attr('href').substring(1)
+                const id = $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? ""
                 if(!addedIds.includes(id)) {
                     results.push(createMangaTile({
                         id: id,
                         title: createIconText({ text: decodeHTMLEntity($('div.border-gray-200 > a', htmlResult).text()) }),
-                        image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                        image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
                     }))
                     addedIds.push(id)
                 }
@@ -292,13 +292,13 @@ export class LightNovelReader extends Source {
         else {
             const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray()
             for(let htmlResult of htmlResults) {
-                const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href').substring(1)
+                const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href')?.substring(1) ?? ""
                 if(!addedIds.includes(id)) {
                     results.push(createMangaTile({
                         id: id,
                         title: createIconText({ text: decodeHTMLEntity($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
                         subtitleText: createIconText({ text: decodeHTMLEntity($('a.truncate', htmlResult).text()) }),
-                        image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src')
+                        image: $('div.items-center > div.mr-4 > a > img', htmlResult)?.attr('src') ?? ""
                     }))
                     addedIds.push(id)
                 }
