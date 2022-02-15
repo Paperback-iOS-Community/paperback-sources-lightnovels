@@ -90,7 +90,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         return createManga({
             id: mangaId,
             titles: titles,
-            image: $('a > img', details).attr('src'),
+            image: $('a > img', details).attr('src') ?? "",
             status: status,
             author: author,
             artist: artist,
@@ -129,14 +129,14 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         for (let volume of volumes) {
             if ($(volume).attr('x-show') === undefined)
                 continue;
-            volumeOn = parseInt($(volume).attr('x-show').split(" ").pop());
+            volumeOn = parseInt($(volume).attr('x-show')?.split(" ").pop() ?? "1");
             const chapterRows = $(volume).children().toArray();
             for (let chapterRow of chapterRows) {
                 for (let chapter of $('a', chapterRow).toArray()) {
                     chapters.push(createChapter({
-                        id: $(chapter).attr('href'),
+                        id: $(chapter).attr('href') ?? "",
                         mangaId: mangaId,
-                        chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1])) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1]),
+                        chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1] ?? "0"),
                         langCode: paperback_extensions_common_1.LanguageCode.ENGLISH,
                         volume: volumeOn
                     }));
@@ -188,9 +188,9 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         const results = [];
         for (let htmlResult of htmlResults) {
             results.push(createMangaTile({
-                id: $('div.border-gray-200 > a', htmlResult).attr('href').substring(1),
+                id: $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? "",
                 title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.border-gray-200 > a', htmlResult).text()) }),
-                image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
             }));
         }
         return createPagedResults({ results: results });
@@ -231,9 +231,9 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
                 const htmlResults = $('div.flex-1 > div.mb-4').toArray();
                 for (let htmlResult of htmlResults) {
                     results.push(createMangaTile({
-                        id: $('div.border-gray-200 > a', htmlResult).attr('href').substring(1),
+                        id: $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? "",
                         title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.border-gray-200 > a', htmlResult).text()) }),
-                        image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                        image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
                     }));
                 }
             }
@@ -241,13 +241,13 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
                 const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray();
                 const addedIds = [];
                 for (let htmlResult of htmlResults) {
-                    const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href').substring(1);
+                    const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href')?.substring(1) ?? "";
                     if (!addedIds.includes(id)) {
                         results.push(createMangaTile({
                             id: id,
                             title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
                             subtitleText: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('a.truncate', htmlResult).text()) }),
-                            image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src')
+                            image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src') ?? ""
                         }));
                         addedIds.push(id);
                     }
@@ -265,18 +265,18 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         });
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES);
         const $ = this.cheerio.load(response.data);
-        const lastPage = parseInt($('nav.pagination > a.pagination__item').last().attr('href').split('/').pop());
+        const lastPage = parseInt($('nav.pagination > a.pagination__item').last().attr('href')?.split('/').pop() ?? "1");
         const results = [];
         const addedIds = metadata?.addedIds ?? [];
         if (homepageSectionId.startsWith("ranking")) {
             const htmlResults = $('div.flex-1 > div.mb-4').toArray();
             for (let htmlResult of htmlResults) {
-                const id = $('div.border-gray-200 > a', htmlResult).attr('href').substring(1);
+                const id = $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? "";
                 if (!addedIds.includes(id)) {
                     results.push(createMangaTile({
                         id: id,
                         title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.border-gray-200 > a', htmlResult).text()) }),
-                        image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                        image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
                     }));
                     addedIds.push(id);
                 }
@@ -285,13 +285,13 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         else {
             const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray();
             for (let htmlResult of htmlResults) {
-                const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href').substring(1);
+                const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href')?.substring(1) ?? "";
                 if (!addedIds.includes(id)) {
                     results.push(createMangaTile({
                         id: id,
                         title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
                         subtitleText: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('a.truncate', htmlResult).text()) }),
-                        image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src')
+                        image: $('div.items-center > div.mr-4 > a > img', htmlResult)?.attr('src') ?? ""
                     }));
                     addedIds.push(id);
                 }
