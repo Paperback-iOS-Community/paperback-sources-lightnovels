@@ -69,6 +69,7 @@ function calculateTextLength(text: string, font: string): number {
  * @returns an array of rows of text
  */
 export function spliterate(text: string, max: number, font: string): {split: string[], width: number} {
+    console.log(`getting font "${font}"`)
     text = text.replace(/\n/g, "\n ")
     const fullsplit = text.split(" ").filter((value) => value.length > 0)
     const split: string[] = []
@@ -211,7 +212,7 @@ export function interceptResponse(response: Response, cheerio: any, settings: Im
         for(let i of arr) {
             if($(i).attr('class') !== "display-hide") tarr.push(decodeHTMLEntity($(i).text()))
         }
-        let pageText = tarr.join("\n")
+        let pageText = tarr.join("\n\n")
         response.rawData = createRawData(writeImageData(writeText(pageText, pageNum, settings)))
         response.headers['content-type'] = 'image/bmp'
     }

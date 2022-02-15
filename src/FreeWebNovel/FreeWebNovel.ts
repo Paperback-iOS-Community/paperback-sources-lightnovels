@@ -47,9 +47,9 @@ export class FreeWebNovel extends Source {
         interceptor: {
             interceptRequest: async (request) => {return request},
             interceptResponse: async (response) => {return interceptResponse(response, this.cheerio, {
-                textColor: COLORS[(await getTextColor(this.stateManager)).toLowerCase().replace(" ", "_")],
-                backgroundColor: COLORS[(await getBackgroundColor(this.stateManager)).toLowerCase().replace(" ", "_")],
-                font: `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`,
+                textColor: COLORS[(await getTextColor(this.stateManager)).toLowerCase().replace(/ /g, "_")],
+                backgroundColor: COLORS[(await getBackgroundColor(this.stateManager)).toLowerCase().replace(/ /g, "_")],
+                font: `${(await getFont(this.stateManager)).toLowerCase().replace(/ /g, "")}${await getFontSize(this.stateManager)}`,
                 padding: {
                     horizontal: await getHorizontalPadding(this.stateManager),
                     vertical: await getVerticalPadding(this.stateManager)
@@ -155,7 +155,7 @@ export class FreeWebNovel extends Source {
             textSegments.push(decodeHTMLEntity($(chapterTextSeg).text()))
         }
         const text = textSegments.join('\n')
-        const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager))-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`).split.length/(await getLinesPerPage(this.stateManager)))
+        const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager))-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(/ /g, "")}${await getFontSize(this.stateManager)}`).split.length/(await getLinesPerPage(this.stateManager)))
         for(let i = 1; i <= lines; i++) {
             pages.push(`${WEBSITE_URL}/${chapterId}.html?ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`)
         }
@@ -178,11 +178,13 @@ export class FreeWebNovel extends Source {
         const results: MangaTile[] = []
         for(let htmlResult of htmlResults) {
             const a = $('div.pic > a', htmlResult)
-            results.push(createMangaTile({
-                id: $(a).attr('href').substring(1).split('.')[0],
-                title: createIconText({ text: $('img', a).attr('title')}),
-                image: $('img', a).attr('src')
-            }))
+            if($(a).attr('href') !== undefined) {
+                results.push(createMangaTile({
+                    id: $(a).attr('href').substring(1).split('.')[0],
+                    title: createIconText({ text: $('img', a).attr('title')}),
+                    image: $('img', a).attr('src')
+                }))
+            }
         }
         return createPagedResults({ results: results })
     }
@@ -251,7 +253,7 @@ export class FreeWebNovel extends Source {
 }
 
 export const FreeWebNovelInfo: SourceInfo = {
-    version: '2.0.0',
+    version: '2.0.1',
     name: 'FreeWebNovel',
     icon: 'icon.jpg',
     author: 'JimIsWayTooEpic',
