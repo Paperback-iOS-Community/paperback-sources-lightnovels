@@ -29,9 +29,9 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
                 interceptRequest: async (request) => { return request; },
                 interceptResponse: async (response) => {
                     return (0, LightNovelReaderResponseInterceptor_1.interceptResponse)(response, this.cheerio, {
-                        textColor: COLORS[(await getTextColor(this.stateManager)).toLowerCase().replace(" ", "_")],
-                        backgroundColor: COLORS[(await getBackgroundColor(this.stateManager)).toLowerCase().replace(" ", "_")],
-                        font: `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`,
+                        textColor: COLORS[(await getTextColor(this.stateManager)).toLowerCase().replace(/ /g, "_")],
+                        backgroundColor: COLORS[(await getBackgroundColor(this.stateManager)).toLowerCase().replace(/ /g, "_")],
+                        font: `${(await getFont(this.stateManager)).toLowerCase().replace(/ /g, "")}${await getFontSize(this.stateManager)}`,
                         padding: {
                             horizontal: await getHorizontalPadding(this.stateManager),
                             vertical: await getVerticalPadding(this.stateManager)
@@ -57,7 +57,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         const $ = this.cheerio.load(response.data);
         const novel = $('div.container > div > div');
         const titles = [$('div.section-header > div.flex > h1', novel).text()];
-        const description = $('div.text-sm > p', novel).text();
+        const description = (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.text-sm > p', novel).text());
         const details = $('div.flex > div.flex', novel);
         let status = paperback_extensions_common_1.MangaStatus.UNKNOWN;
         let author = undefined;
@@ -105,30 +105,42 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         });
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES);
         let $ = this.cheerio.load(response.data);
-        const hiddenId = $('div.js-load-chapters').data('novel-id');
-        console.log(`hiddenId: ${hiddenId}`);
-        const newRequest = createRequestObject({
-            url: `${WEBSITE_URL}/novel/load-chapters`,
-            method: 'POST',
-            headers: {
-                'content-type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            data: `mangaId=${hiddenId}`
-        });
-        const newResponse = await this.requestManager.schedule(newRequest, REQUEST_RETRIES);
-        $ = this.cheerio.load(newResponse.data);
-        const chapterRows = $('div > div.grid').toArray();
         const chapters = [];
-        console.log(`data: ${$.html()}, headers ${newResponse.request.headers['x-requested-with']}`);
-        for (let chapterRow of chapterRows) {
-            for (let chapter of $('a', chapterRow).toArray()) {
-                chapters.push(createChapter({
-                    id: $(chapter).attr('src'),
-                    mangaId: mangaId,
-                    chapNum: parseInt($('div > span', chapter).text().split(" ")[1]),
-                    langCode: paperback_extensions_common_1.LanguageCode.ENGLISH
-                }));
+        let volumes = [];
+        if ($('div.js-load-chapters') !== undefined) {
+            const hiddenId = $('div.js-load-chapters').data('novel-id');
+            const newRequest = createRequestObject({
+                url: `${WEBSITE_URL}/novel/load-chapters`,
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                data: `novelId=${hiddenId}`
+            });
+            const newResponse = await this.requestManager.schedule(newRequest, REQUEST_RETRIES);
+            $ = this.cheerio.load(newResponse.data);
+            volumes = $('div[x-show]').toArray();
+        }
+        else {
+            volumes = $('div.js-chapter-tab-content > div[x-show]').toArray();
+        }
+        let volumeOn = 1;
+        for (let volume of volumes) {
+            if ($(volume).attr('x-show') === undefined)
+                continue;
+            volumeOn = parseInt($(volume).attr('x-show').split(" ").pop());
+            const chapterRows = $(volume).children().toArray();
+            for (let chapterRow of chapterRows) {
+                for (let chapter of $('a', chapterRow).toArray()) {
+                    chapters.push(createChapter({
+                        id: $(chapter).attr('href'),
+                        mangaId: mangaId,
+                        chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1])) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1]),
+                        langCode: paperback_extensions_common_1.LanguageCode.ENGLISH,
+                        volume: volumeOn
+                    }));
+                }
             }
         }
         return chapters;
@@ -147,10 +159,10 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
             if ($(chapterTextSeg).attr('class') !== "display-hide")
                 textSegments.push((0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($(chapterTextSeg).text()));
         }
-        const text = textSegments.join('\n');
-        const lines = Math.ceil((0, LightNovelReaderResponseInterceptor_1.spliterate)(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager)) - (await getHorizontalPadding(this.stateManager)) * 2, `${(await getFont(this.stateManager)).toLowerCase().replace(" ", "")}${await getFontSize(this.stateManager)}`).split.length / (await getLinesPerPage(this.stateManager)));
+        const text = textSegments.join('\n\n');
+        const lines = Math.ceil((0, LightNovelReaderResponseInterceptor_1.spliterate)(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager)) - (await getHorizontalPadding(this.stateManager)) * 2, `${(await getFont(this.stateManager)).toLowerCase().replace(/ /g, "")}${await getFontSize(this.stateManager)}`).split.length / (await getLinesPerPage(this.stateManager)));
         for (let i = 1; i <= lines; i++) {
-            pages.push(`${WEBSITE_URL}/${chapterId}.html?ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`);
+            pages.push(`${WEBSITE_URL}/${chapterId}?ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`);
         }
         return createChapterDetails({
             id: chapterId,
@@ -160,109 +172,143 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         });
     }
     async getSearchResults(query, metadata) {
-        if (!query.title || query.title.length < 3)
-            return createPagedResults({ results: [] });
         const request = createRequestObject({
             url: `${WEBSITE_URL}/detailed-search`,
             method: 'POST',
             headers: {
-                'content-type': 'application/x-www-form-urlencoded'
+                'content-type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             data: `search=${query.title ?? ""}`
         });
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES);
+        console.log(`${response.status}: ${response.request.data}`);
         const $ = this.cheerio.load(response.data);
         const htmlResults = $('div.flex-1 > div.mb-4').toArray();
         const results = [];
         for (let htmlResult of htmlResults) {
             results.push(createMangaTile({
-                id: $('div.border-b > a', htmlResult).attr('href').substring(1),
-                title: createIconText({ text: $('div.border-b > a', htmlResult).text() }),
+                id: $('div.border-gray-200 > a', htmlResult).attr('href').substring(1),
+                title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.border-gray-200 > a', htmlResult).text()) }),
                 image: $('div.items-stretch > a > img', htmlResult).attr('src')
             }));
         }
         return createPagedResults({ results: results });
     }
     async getHomePageSections(sectionCallback) {
-        let section = createHomeSection({
-            id: 'recently_updated',
-            title: 'Recently Updated Mangas',
-            view_more: false,
-        });
-        sectionCallback(section);
-        section.items = [
-            createMangaTile({
-                id: 'necropolis-immortal-895735',
-                title: createIconText({ text: 'test' }),
-                image: ''
-            })
+        const sections = [
+            createHomeSection({
+                id: 'latest-updates',
+                title: 'Latest Updated Novels',
+                view_more: true,
+            }),
+            createHomeSection({
+                id: 'ranking/new',
+                title: 'New Novels',
+                view_more: true,
+            }),
+            createHomeSection({
+                id: 'ranking/top-rated',
+                title: 'Top Rated Novels',
+                view_more: true,
+            }),
+            createHomeSection({
+                id: 'ranking/most-viewed',
+                title: 'Most Viewed Novels',
+                view_more: true,
+            }),
         ];
-        sectionCallback(section);
-        // const sections = [
-        //     createHomeSection({
-        //         id: 'latest-release-novel',
-        //         title: 'Recently Updated Novels',
-        //         view_more: true,
-        //     }),
-        //     createHomeSection({
-        //         id: 'most-popular-novel',
-        //         title: 'Most Popular Novels',
-        //         view_more: true,
-        //     })
-        // ]
-        // for(let section of sections) {
-        //     const request = createRequestObject({
-        //         url: `${WEBSITE_URL}/${section.id}/`,
-        //         method: 'GET'
-        //     })
-        //     const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
-        //     const $ = this.cheerio.load(response.data)
-        //     sectionCallback(section)
-        //     const htmlResults = $('div.ss-custom > div').toArray()
-        //     const results: MangaTile[] = []
-        //     for(let htmlResult of htmlResults) {
-        //         const a = $('div.pic > a', htmlResult)
-        //         results.push(createMangaTile({
-        //             id: $(a).attr('href').substring(1).split('.')[0],
-        //             title: createIconText({ text: $('img', a).attr('title')}),
-        //             image: $('img', a).attr('src')
-        //         }))
-        //     }
-        //     section.items = results
-        //     sectionCallback(section)
-        // }
+        for (let section of sections) {
+            const request = createRequestObject({
+                url: `${WEBSITE_URL}/${section.id}/`,
+                method: 'GET'
+            });
+            const response = await this.requestManager.schedule(request, REQUEST_RETRIES);
+            const $ = this.cheerio.load(response.data);
+            sectionCallback(section);
+            const results = [];
+            if (section.id.startsWith("ranking")) {
+                const htmlResults = $('div.flex-1 > div.mb-4').toArray();
+                for (let htmlResult of htmlResults) {
+                    results.push(createMangaTile({
+                        id: $('div.border-gray-200 > a', htmlResult).attr('href').substring(1),
+                        title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.border-gray-200 > a', htmlResult).text()) }),
+                        image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                    }));
+                }
+            }
+            else {
+                const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray();
+                const addedIds = [];
+                for (let htmlResult of htmlResults) {
+                    const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href').substring(1);
+                    if (!addedIds.includes(id)) {
+                        results.push(createMangaTile({
+                            id: id,
+                            title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
+                            subtitleText: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('a.truncate', htmlResult).text()) }),
+                            image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src')
+                        }));
+                        addedIds.push(id);
+                    }
+                }
+            }
+            section.items = results;
+            sectionCallback(section);
+        }
     }
-    // override async getViewMoreItems(homepageSectionId: string, metadata: any): Promise<PagedResults> {
-    //     const page = metadata?.page ?? 1
-    //     const request = createRequestObject({
-    //         url: `${WEBSITE_URL}/${homepageSectionId}/${page}/`,
-    //         method: 'GET'
-    //     })
-    //     const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
-    //     const $ = this.cheerio.load(response.data)
-    //     const lastPage = parseInt($('div.pages > ul > li').children('a').last().text()) === page
-    //     const htmlResults = $('div.ss-custom > div').toArray()
-    //     const results: MangaTile[] = []
-    //     for(let htmlResult of htmlResults) {
-    //         const a = $('div.pic > a', htmlResult)
-    //         results.push(createMangaTile({
-    //             id: $(a).attr('href').substring(1).split('.')[0],
-    //             title: createIconText({ text: $('img', a).attr('title')}),
-    //             image: $('img', a).attr('src')
-    //         }))
-    //     }
-    //     return createPagedResults({
-    //         results: results,
-    //         metadata: lastPage ? undefined : {page: page + 1}
-    //     })
-    // }
+    async getViewMoreItems(homepageSectionId, metadata) {
+        const page = metadata?.page ?? 1;
+        const request = createRequestObject({
+            url: `${WEBSITE_URL}/${homepageSectionId}/${page}/`,
+            method: 'GET'
+        });
+        const response = await this.requestManager.schedule(request, REQUEST_RETRIES);
+        const $ = this.cheerio.load(response.data);
+        const lastPage = parseInt($('nav.pagination > a.pagination__item').last().attr('href').split('/').pop());
+        const results = [];
+        const addedIds = metadata?.addedIds ?? [];
+        if (homepageSectionId.startsWith("ranking")) {
+            const htmlResults = $('div.flex-1 > div.mb-4').toArray();
+            for (let htmlResult of htmlResults) {
+                const id = $('div.border-gray-200 > a', htmlResult).attr('href').substring(1);
+                if (!addedIds.includes(id)) {
+                    results.push(createMangaTile({
+                        id: id,
+                        title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.border-gray-200 > a', htmlResult).text()) }),
+                        image: $('div.items-stretch > a > img', htmlResult).attr('src')
+                    }));
+                    addedIds.push(id);
+                }
+            }
+        }
+        else {
+            const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray();
+            for (let htmlResult of htmlResults) {
+                const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href').substring(1);
+                if (!addedIds.includes(id)) {
+                    results.push(createMangaTile({
+                        id: id,
+                        title: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
+                        subtitleText: createIconText({ text: (0, LightNovelReaderResponseInterceptor_1.decodeHTMLEntity)($('a.truncate', htmlResult).text()) }),
+                        image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src')
+                    }));
+                    addedIds.push(id);
+                }
+            }
+        }
+        return createPagedResults({
+            results: results,
+            metadata: (lastPage === page) ? undefined : { page: page + 1, addedIds: addedIds }
+        });
+    }
     getMangaShareUrl(mangaId) {
-        return `${WEBSITE_URL}/${mangaId}.html`;
+        return `${WEBSITE_URL}/${mangaId}`;
     }
 }
 exports.LightNovelReader = LightNovelReader;
 exports.LightNovelReaderInfo = {
-    version: '1.0.1',
+    version: '1.1.0',
     name: 'LightNovelReader',
     icon: 'icon.png',
     author: 'JimIsWayTooEpic',
