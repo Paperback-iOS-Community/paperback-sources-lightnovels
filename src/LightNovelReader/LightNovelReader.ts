@@ -116,7 +116,7 @@ export class LightNovelReader extends Source {
         let $ = this.cheerio.load(response.data)
         const chapters: Chapter[] = []
         let volumes: any[] = []
-        if($('div.js-load-chapters') !== undefined) {
+        if($('div.js-load-chapters').data('novel-id') !== undefined) {
             const hiddenId = $('div.js-load-chapters').data('novel-id')
             const newRequest = createRequestObject({
                 url: `${WEBSITE_URL}/novel/load-chapters`,
@@ -128,25 +128,26 @@ export class LightNovelReader extends Source {
                 data: `novelId=${hiddenId}`
             })
             const newResponse = await this.requestManager.schedule(newRequest, REQUEST_RETRIES)
-            $ = this.cheerio.load(newResponse.data)
-            volumes = $('div').toArray()
+            $ = this.cheerio.load(newResponse.data, null, false)
+            volumes = $.root().children().toArray()
         }
         else {
-            volumes = $('div.js-chapter-tab-content > div').toArray()
+            volumes = $('div.js-chapter-tab-content').children().toArray()
         }
         let volumeOn = 1
         for(let volume of volumes) {
             if($(volume).attr('x-show') === undefined) continue
             volumeOn = parseInt($(volume).attr('x-show')?.split(" ").pop() ?? "1")
-            const chapterRows = $('div.grid', volume).toArray()
+            const chapterRows = $(volume).children().toArray()
             for(let chapterRow of chapterRows) {
-                for(let chapter of $('a', chapterRow).toArray()) {
+                for(let chapter of $(chapterRow).children().toArray()) {
                     chapters.push(createChapter({
-                        id: $(chapter).attr('href')?.split("/").pop() ?? "",
+                        id: `${$(chapter).attr('href')?.split("/").pop()}?paperbackVolume=${volumeOn}` ?? "",
                         mangaId: mangaId,
-                        chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1] ?? "0"),
+                        chapNum: isNaN(parseFloat($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseFloat($('div > span', chapter).text().split(" ")[1] ?? "0"),
                         langCode: LanguageCode.ENGLISH,
-                        volume: volumeOn
+                        volume: volumeOn,
+                        name: $('div > span', chapter).text()
                     }))
                 }
             }
@@ -155,7 +156,7 @@ export class LightNovelReader extends Source {
     }
     async getChapterDetails(mangaId: string, chapterId: string): Promise<ChapterDetails> {
         const request = createRequestObject({
-            url: `${WEBSITE_URL}/${chapterId}`,
+            url: `${WEBSITE_URL}/${mangaId}/${chapterId}`,
             method: 'GET',
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
@@ -169,7 +170,7 @@ export class LightNovelReader extends Source {
         const text = textSegments.join('\n\n')
         const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager))-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(/ /g, "")}${await getFontSize(this.stateManager)}`).split.length/(await getLinesPerPage(this.stateManager)))
         for(let i = 1; i <= lines; i++) {
-            pages.push(`${WEBSITE_URL}/${chapterId}?ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`)
+            pages.push(`${WEBSITE_URL}/${mangaId}/${chapterId}${chapterId.includes("?") ? "&" : "?"}ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`)
         }
         return createChapterDetails({
             id: chapterId,
@@ -189,7 +190,6 @@ export class LightNovelReader extends Source {
             data: `search=${query.title ?? ""}`
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
-        console.log(`${response.status}: ${response.request.data}`)
         const $ = this.cheerio.load(response.data)
         const htmlResults = $('div.flex-1 > div.mb-4').toArray()
         const results: MangaTile[] = []
@@ -315,7 +315,7 @@ export class LightNovelReader extends Source {
 }
 
 export const LightNovelReaderInfo: SourceInfo = {
-    version: '1.1.1',
+    version: '1.1.2',
     name: 'LightNovelReader',
     icon: 'icon.png',
     author: 'JimIsWayTooEpic',
