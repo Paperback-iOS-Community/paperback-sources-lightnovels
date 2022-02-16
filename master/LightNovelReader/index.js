@@ -565,17 +565,17 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
             });
             const newResponse = await this.requestManager.schedule(newRequest, REQUEST_RETRIES);
             $ = this.cheerio.load(newResponse.data);
-            volumes = $('div[x-show]').toArray();
+            volumes = $('div').toArray();
         }
         else {
-            volumes = $('div.js-chapter-tab-content > div[x-show]').toArray();
+            volumes = $('div.js-chapter-tab-content > div').toArray();
         }
         let volumeOn = 1;
         for (let volume of volumes) {
             if ($(volume).attr('x-show') === undefined)
                 continue;
             volumeOn = parseInt($(volume).attr('x-show')?.split(" ").pop() ?? "1");
-            const chapterRows = $(volume).children().toArray();
+            const chapterRows = $('div.grid', volume).toArray();
             for (let chapterRow of chapterRows) {
                 for (let chapter of $('a', chapterRow).toArray()) {
                     chapters.push(createChapter({
@@ -753,7 +753,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
 }
 exports.LightNovelReader = LightNovelReader;
 exports.LightNovelReaderInfo = {
-    version: '1.1.0',
+    version: '1.1.1',
     name: 'LightNovelReader',
     icon: 'icon.png',
     author: 'JimIsWayTooEpic',
