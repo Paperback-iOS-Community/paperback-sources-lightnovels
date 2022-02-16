@@ -142,7 +142,7 @@ export class LightNovelReader extends Source {
             for(let chapterRow of chapterRows) {
                 for(let chapter of $('a', chapterRow).toArray()) {
                     chapters.push(createChapter({
-                        id: $(chapter).attr('href') ?? "",
+                        id: $(chapter).attr('href')?.split("/").pop() ?? "",
                         mangaId: mangaId,
                         chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1] ?? "0"),
                         langCode: LanguageCode.ENGLISH,
