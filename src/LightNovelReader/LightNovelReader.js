@@ -134,7 +134,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
             for (let chapterRow of chapterRows) {
                 for (let chapter of $('a', chapterRow).toArray()) {
                     chapters.push(createChapter({
-                        id: $(chapter).attr('href') ?? "",
+                        id: $(chapter).attr('href')?.split("/").pop() ?? "",
                         mangaId: mangaId,
                         chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1] ?? "0"),
                         langCode: paperback_extensions_common_1.LanguageCode.ENGLISH,
