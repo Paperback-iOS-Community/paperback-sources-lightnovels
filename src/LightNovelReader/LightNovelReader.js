@@ -308,7 +308,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
 }
 exports.LightNovelReader = LightNovelReader;
 exports.LightNovelReaderInfo = {
-    version: '1.1.2',
+    version: '1.1.3',
     name: 'LightNovelReader',
     icon: 'icon.png',
     author: 'JimIsWayTooEpic',
