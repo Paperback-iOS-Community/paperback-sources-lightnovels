@@ -552,7 +552,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         let $ = this.cheerio.load(response.data);
         const chapters = [];
         let volumes = [];
-        if ($('div.js-load-chapters') !== undefined) {
+        if ($('div.js-load-chapters').data('novel-id') !== undefined) {
             const hiddenId = $('div.js-load-chapters').data('novel-id');
             const newRequest = createRequestObject({
                 url: `${WEBSITE_URL}/novel/load-chapters`,
@@ -564,26 +564,27 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
                 data: `novelId=${hiddenId}`
             });
             const newResponse = await this.requestManager.schedule(newRequest, REQUEST_RETRIES);
-            $ = this.cheerio.load(newResponse.data);
-            volumes = $('div').toArray();
+            $ = this.cheerio.load(newResponse.data, null, false);
+            volumes = $.root().children().toArray();
         }
         else {
-            volumes = $('div.js-chapter-tab-content > div').toArray();
+            volumes = $('div.js-chapter-tab-content').children().toArray();
         }
         let volumeOn = 1;
         for (let volume of volumes) {
             if ($(volume).attr('x-show') === undefined)
                 continue;
             volumeOn = parseInt($(volume).attr('x-show')?.split(" ").pop() ?? "1");
-            const chapterRows = $('div.grid', volume).toArray();
+            const chapterRows = $(volume).children().toArray();
             for (let chapterRow of chapterRows) {
-                for (let chapter of $('a', chapterRow).toArray()) {
+                for (let chapter of $(chapterRow).children().toArray()) {
                     chapters.push(createChapter({
-                        id: $(chapter).attr('href')?.split("/").pop() ?? "",
+                        id: `${$(chapter).attr('href')?.split("/").pop()}?paperbackVolume=${volumeOn}` ?? "",
                         mangaId: mangaId,
-                        chapNum: isNaN(parseInt($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseInt($('div > span', chapter).text().split(" ")[1] ?? "0"),
+                        chapNum: isNaN(parseFloat($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseFloat($('div > span', chapter).text().split(" ")[1] ?? "0"),
                         langCode: paperback_extensions_common_1.LanguageCode.ENGLISH,
-                        volume: volumeOn
+                        volume: volumeOn,
+                        name: $('div > span', chapter).text()
                     }));
                 }
             }
@@ -592,7 +593,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
     }
     async getChapterDetails(mangaId, chapterId) {
         const request = createRequestObject({
-            url: `${WEBSITE_URL}/${chapterId}`,
+            url: `${WEBSITE_URL}/${mangaId}/${chapterId}`,
             method: 'GET',
         });
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES);
@@ -607,7 +608,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
         const text = textSegments.join('\n\n');
         const lines = Math.ceil((0, LightNovelReaderResponseInterceptor_1.spliterate)(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager)) - (await getHorizontalPadding(this.stateManager)) * 2, `${(await getFont(this.stateManager)).toLowerCase().replace(/ /g, "")}${await getFontSize(this.stateManager)}`).split.length / (await getLinesPerPage(this.stateManager)));
         for (let i = 1; i <= lines; i++) {
-            pages.push(`${WEBSITE_URL}/${chapterId}?ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`);
+            pages.push(`${WEBSITE_URL}/${mangaId}/${chapterId}${chapterId.includes("?") ? "&" : "?"}ttiparse&ttipage=${i}&ttisettings=${encodeURIComponent(await getSettingsString(this.stateManager))}`);
         }
         return createChapterDetails({
             id: chapterId,
@@ -627,7 +628,6 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
             data: `search=${query.title ?? ""}`
         });
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES);
-        console.log(`${response.status}: ${response.request.data}`);
         const $ = this.cheerio.load(response.data);
         const htmlResults = $('div.flex-1 > div.mb-4').toArray();
         const results = [];
@@ -753,7 +753,7 @@ class LightNovelReader extends paperback_extensions_common_1.Source {
 }
 exports.LightNovelReader = LightNovelReader;
 exports.LightNovelReaderInfo = {
-    version: '1.1.1',
+    version: '1.1.2',
     name: 'LightNovelReader',
     icon: 'icon.png',
     author: 'JimIsWayTooEpic',
