@@ -1,6 +1,41 @@
 import { Response } from 'paperback-extensions-common'
 import { fonts } from '../.fonts'
 
+const replacementMap: {[key: string]: string} = {
+    "“": "\"",
+    "‘": "'",
+    "‟": "\"",
+    "«": "\"",
+    "‹": "'",
+    "〝": "\"",
+    "‛": "'",
+    "❛": "'",
+    "»": "\"",
+    "›": "'",
+    "”": "\"",
+    "’": "'",
+    "❝": "\"",
+    "❞": "\"",
+    "❮": "'",
+    "❯": "'",
+    "〞": "\"",
+    "❜": "'",
+    "＂": "\"",
+    "—": "-",
+    "–": "-",
+    "‒": "-",
+    "‐": "-",
+    "⁃": "-",
+    "﹣": "-",
+    "－": "-",
+    "…": "...",
+    " ": " ",
+    "―": "-",
+    "′": "'",
+    "″": "\"",
+    "‵": "'"
+}
+
 const BMP_HEADER1 = [0x42, 0x4D]
 // insert 4 bytes of file size here, little-endian, 54 bytes header + img data size
 const BMP_HEADER2 = [0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00]
@@ -170,6 +205,9 @@ export function decodeHTMLEntity(str: string): string {
     .replace(/&#(\d+);/g, function (match, dec) {
         return String.fromCharCode(dec);
     })
+    .replace(/&#x(\d+);/g, function (match, dec) {
+        return String.fromCharCode(parseInt(String(dec), 16));
+    })
      .replace(/&amp;/g, '&')
      .replace(/&lt;/g, '<')
      .replace(/&gt;/g, '>')
@@ -190,6 +228,9 @@ export function decodeHTMLEntity(str: string): string {
      .replace(/&rdquo;/g, '"')
      .replace(/&hellip;/g, '...')
      .replace(/&hearts;/g, '')
+     .replace(/[^\x00-\x7F]/g, function (match) {
+        return replacementMap.hasOwnProperty(match) ? replacementMap[match]! : ""
+    })
 }
 
 export function interceptResponse(response: Response, cheerio: any, settings: ImageOptions): Response {

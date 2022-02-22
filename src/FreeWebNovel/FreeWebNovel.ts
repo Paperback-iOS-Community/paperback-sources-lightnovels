@@ -253,7 +253,7 @@ export class FreeWebNovel extends Source {
 }
 
 export const FreeWebNovelInfo: SourceInfo = {
-    version: '2.0.1',
+    version: '2.0.2',
     name: 'FreeWebNovel',
     icon: 'icon.jpg',
     author: 'JimIsWayTooEpic',

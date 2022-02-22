@@ -315,7 +315,7 @@ export class LightNovelReader extends Source {
 }
 
 export const LightNovelReaderInfo: SourceInfo = {
-    version: '1.1.2',
+    version: '1.1.3',
     name: 'LightNovelReader',
     icon: 'icon.png',
     author: 'JimIsWayTooEpic',
