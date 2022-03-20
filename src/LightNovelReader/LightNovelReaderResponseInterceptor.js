@@ -247,11 +247,11 @@ function interceptResponse(response, cheerio, settings) {
             }
         }
         const $ = cheerio.load(response.data);
-        const arr = $('article > p').toArray();
+        const arr = $('div#chapterText > p').toArray(); //.splice(0, $('div#chapterText > p').toArray().length-2)
         const tarr = [];
-        for (let i of arr) {
-            if ($(i).attr('class') !== "display-hide")
-                tarr.push(decodeHTMLEntity($(i).text()));
+        for (let chapterTextSeg of arr) {
+            if (!$(chapterTextSeg).hasClass("display-hide"))
+                tarr.push(decodeHTMLEntity($(chapterTextSeg).text()));
         }
         let pageText = tarr.join("\n\n");
         response.rawData = createRawData(writeImageData(writeText(pageText, pageNum, settings)));
