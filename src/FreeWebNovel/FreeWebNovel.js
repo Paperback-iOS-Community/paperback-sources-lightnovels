@@ -238,7 +238,7 @@ class FreeWebNovel extends paperback_extensions_common_1.Source {
 }
 exports.FreeWebNovel = FreeWebNovel;
 exports.FreeWebNovelInfo = {
-    version: '2.0.1',
+    version: '2.0.2',
     name: 'FreeWebNovel',
     icon: 'icon.jpg',
     author: 'JimIsWayTooEpic',

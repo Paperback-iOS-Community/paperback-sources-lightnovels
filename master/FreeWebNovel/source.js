@@ -683,7 +683,7 @@ class FreeWebNovel extends paperback_extensions_common_1.Source {
 }
 exports.FreeWebNovel = FreeWebNovel;
 exports.FreeWebNovelInfo = {
-    version: '2.0.1',
+    version: '2.0.2',
     name: 'FreeWebNovel',
     icon: 'icon.jpg',
     author: 'JimIsWayTooEpic',
@@ -841,6 +841,40 @@ async function styleSettings(stateManager) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.interceptResponse = exports.decodeHTMLEntity = exports.spliterate = void 0;
 const _fonts_1 = require("../.fonts");
+const replacementMap = {
+    "“": "\"",
+    "‘": "'",
+    "‟": "\"",
+    "«": "\"",
+    "‹": "'",
+    "〝": "\"",
+    "‛": "'",
+    "❛": "'",
+    "»": "\"",
+    "›": "'",
+    "”": "\"",
+    "’": "'",
+    "❝": "\"",
+    "❞": "\"",
+    "❮": "'",
+    "❯": "'",
+    "〞": "\"",
+    "❜": "'",
+    "＂": "\"",
+    "—": "-",
+    "–": "-",
+    "‒": "-",
+    "‐": "-",
+    "⁃": "-",
+    "﹣": "-",
+    "－": "-",
+    "…": "...",
+    " ": " ",
+    "―": "-",
+    "′": "'",
+    "″": "\"",
+    "‵": "'"
+};
 const BMP_HEADER1 = [0x42, 0x4D];
 // insert 4 bytes of file size here, little-endian, 54 bytes header + img data size
 const BMP_HEADER2 = [0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00];
@@ -1007,6 +1041,9 @@ function decodeHTMLEntity(str) {
         .replace(/&#(\d+);/g, function (match, dec) {
         return String.fromCharCode(dec);
     })
+        .replace(/&#x(\d+);/g, function (match, dec) {
+        return String.fromCharCode(parseInt(String(dec), 16));
+    })
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
@@ -1026,7 +1063,10 @@ function decodeHTMLEntity(str) {
         .replace(/&ldquo;/g, '"')
         .replace(/&rdquo;/g, '"')
         .replace(/&hellip;/g, '...')
-        .replace(/&hearts;/g, '');
+        .replace(/&hearts;/g, '')
+        .replace(/[^\x00-\x7F]/g, function (match) {
+        return replacementMap.hasOwnProperty(match) ? replacementMap[match] : "";
+    });
 }
 exports.decodeHTMLEntity = decodeHTMLEntity;
 function interceptResponse(response, cheerio, settings) {
