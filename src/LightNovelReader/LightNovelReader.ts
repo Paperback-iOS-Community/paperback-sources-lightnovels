@@ -8,6 +8,7 @@ import {
     MangaStatus,
     MangaTile,
     PagedResults,
+    Request,
     Response,
     SearchRequest,
     Source,
@@ -72,34 +73,37 @@ export class LightNovelReader extends Source {
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         const $ = this.cheerio.load(response.data)
-        const novel = $('div.container > div > div')
-        const titles = [$('div.section-header > div.flex > h1', novel).text()]
-        const description = decodeHTMLEntity($('div.text-sm > p', novel).text())
-        const details = $('div.flex > div.flex', novel)
+        const titles = [$('div.cm-breadcrumb > ul').children().last().text()]
+        const descriptionSections = $('div.empty-box > p').toArray()
+        let description = ""
+        for(const descriptionSection of descriptionSections) {
+            description += `${decodeHTMLEntity($(descriptionSection).text())}\n`
+        }
+        const details = $('div.novels-detail')
         let status = MangaStatus.UNKNOWN
         let author: string | undefined = undefined
         let artist: string | undefined = undefined
         const tags: Tag[] = []
-        for(let object of $('dl.text-xs > div', details).toArray()) {
-            switch($('dt', object).text()) {
-                case "Alternative Names:": titles.push($('dd > a', object).text()); break
-                case "Status:": status = $('dd', object).text() === "Ongoing" ? MangaStatus.ONGOING : MangaStatus.COMPLETED; break
+        for(let object of $('div.novels-detail-right > ul', details).children().toArray()) {
+            switch($('div.novels-detail-right-in-left', object).text()) {
+                case "Alternative Names:": titles.push($('div.novels-detail-right-in-right', object).text()); break
+                case "Status:": status = $('div.novels-detail-right-in-right', object).text() === "Ongoing" ? MangaStatus.ONGOING : MangaStatus.COMPLETED; break
                 case "Genres":
-                    for(let tag of $('dd > a', object).toArray()) {
+                    for(let tag of $('div.novels-detail-right-in-right', object).children().toArray()) {
                         tags.push(createTag({
                             id: $(tag).text().toLowerCase(),
                             label: $(tag).text()
                         }))
                     }
                     break
-                case "Author(s):": author = $('dd > a', object).text(); break
-                case "Artist(s):": artist = $('dd > a', object).text(); break
+                case "Author(s):": author = $('div.novels-detail-right-in-right', object).text(); break
+                case "Artist(s):": artist = $('div.novels-detail-right-in-right', object).text(); break
             }
         }
         return createManga({
             id: mangaId,
             titles: titles,
-            image: $('a > img', details).attr('src') ?? "",
+            image: $('div.novels-detail-left > img', details).attr('src') ?? "",
             status: status,
             author: author,
             artist: artist,
@@ -115,41 +119,21 @@ export class LightNovelReader extends Source {
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         let $ = this.cheerio.load(response.data)
         const chapters: Chapter[] = []
-        let volumes: any[] = []
-        if($('div.js-load-chapters').data('novel-id') !== undefined) {
-            const hiddenId = $('div.js-load-chapters').data('novel-id')
-            const newRequest = createRequestObject({
-                url: `${WEBSITE_URL}/novel/load-chapters`,
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                data: `novelId=${hiddenId}`
-            })
-            const newResponse = await this.requestManager.schedule(newRequest, REQUEST_RETRIES)
-            $ = this.cheerio.load(newResponse.data, null, false)
-            volumes = $.root().children().toArray()
-        }
-        else {
-            volumes = $('div.js-chapter-tab-content').children().toArray()
-        }
+        let volumes: any[] = $('div.novels-detail-chapters').toArray()
         let volumeOn = 1
         for(let volume of volumes) {
-            if($(volume).attr('x-show') === undefined) continue
-            volumeOn = parseInt($(volume).attr('x-show')?.split(" ").pop() ?? "1")
-            const chapterRows = $(volume).children().toArray()
-            for(let chapterRow of chapterRows) {
-                for(let chapter of $(chapterRow).children().toArray()) {
-                    chapters.push(createChapter({
-                        id: `${$(chapter).attr('href')?.split("/").pop()}?paperbackVolume=${volumeOn}` ?? "",
-                        mangaId: mangaId,
-                        chapNum: isNaN(parseFloat($('div > span', chapter).text().split(" ")[1] ?? "0")) ? 0 : parseFloat($('div > span', chapter).text().split(" ")[1] ?? "0"),
-                        langCode: LanguageCode.ENGLISH,
-                        volume: volumeOn,
-                        name: $('div > span', chapter).text()
-                    }))
-                }
+            volumeOn = parseInt($(volume).attr('id')?.split("-").pop() ?? "1")
+            const chapterObjects = $('ul', volume).children().toArray()
+            for(let chapter of chapterObjects) {
+                const chapterData = $('a', chapter)
+                const chapterName = chapterData.text()
+                chapters.push(createChapter({
+                    id: `${$(chapterData).attr('href')?.split("/").pop()}?paperbackVolume=${volumeOn}` ?? "",
+                    mangaId: mangaId,
+                    chapNum: isNaN(parseFloat(chapterName.substring(chapterName.indexOf("CH")+3) ?? "0")) ? 0 : parseFloat(chapterName.substring(chapterName.indexOf("CH")+3) ?? "0"),
+                    langCode: LanguageCode.ENGLISH,
+                    volume: volumeOn
+                }))
             }
         }
         return chapters
@@ -163,9 +147,9 @@ export class LightNovelReader extends Source {
         const $ = this.cheerio.load(response.data)
         const pages: string[] = []
         const textSegments: string[] = []
-        const chapterText = $('article > p').toArray()
+        const chapterText = $('div#chapterText > p').toArray()//.splice(0, $('div#chapterText > p').toArray().length-2)
         for(let chapterTextSeg of chapterText) {
-            if($(chapterTextSeg).attr('class') !== "display-hide") textSegments.push(decodeHTMLEntity($(chapterTextSeg).text()))
+            if(!$(chapterTextSeg).hasClass("display-hide"))textSegments.push(decodeHTMLEntity($(chapterTextSeg).text()))
         }
         const text = textSegments.join('\n\n')
         const lines = Math.ceil(spliterate(text.replace(/[^\x00-\x7F]/g, ""), (await getImageWidth(this.stateManager))-(await getHorizontalPadding(this.stateManager))*2, `${(await getFont(this.stateManager)).toLowerCase().replace(/ /g, "")}${await getFontSize(this.stateManager)}`).split.length/(await getLinesPerPage(this.stateManager)))
@@ -191,13 +175,13 @@ export class LightNovelReader extends Source {
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         const $ = this.cheerio.load(response.data)
-        const htmlResults = $('div.flex-1 > div.mb-4').toArray()
+        const htmlResults = $('div.category-items > ul').children().toArray()
         const results: MangaTile[] = []
         for(let htmlResult of htmlResults) {
             results.push(createMangaTile({
-                id: $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? "",
-                title: createIconText({ text: decodeHTMLEntity($('div.border-gray-200 > a', htmlResult).text())}),
-                image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
+                id: $('div.category-name > a', htmlResult).attr('href')?.substring(1) ?? "",
+                title: createIconText({ text: decodeHTMLEntity($('div.category-name > a', htmlResult).text())}),
+                image: $('div.category-img > a > img', htmlResult).attr('src') ?? ""
             }))
         }
         return createPagedResults({ results: results })
@@ -235,26 +219,26 @@ export class LightNovelReader extends Source {
             sectionCallback(section)
             const results: MangaTile[] = []
             if(section.id.startsWith("ranking")) {
-                const htmlResults = $('div.flex-1 > div.mb-4').toArray()
+                const htmlResults = $('div.ranking-category > ul').children().toArray()
                 for(let htmlResult of htmlResults) {
                     results.push(createMangaTile({
-                        id: $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? "",
-                        title: createIconText({ text: decodeHTMLEntity($('div.border-gray-200 > a', htmlResult).text()) }),
-                        image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
+                        id: $('div.category-img > a', htmlResult).attr('href')?.substring(1) ?? "",
+                        title: createIconText({ text: decodeHTMLEntity($('div.category-name > a', htmlResult).text()) }),
+                        image: $('div.category-img > a > img', htmlResult).attr('src') ?? ""
                     }))
                 }
             } 
             else {
-                const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray()
+                const htmlResults = $('div.latest-updates > ul').children().toArray()
                 const addedIds: string[] = []
                 for(let htmlResult of htmlResults) {
-                    const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href')?.substring(1) ?? ""
+                    const id = $('div.latest-updates-name > a', htmlResult).attr('href')?.substring(1) ?? ""
                     if(!addedIds.includes(id)) {
                         results.push(createMangaTile({
                             id: id,
-                            title: createIconText({ text: decodeHTMLEntity($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
-                            subtitleText: createIconText({ text: decodeHTMLEntity($('a.truncate', htmlResult).text()) }),
-                            image: $('div.items-center > div.mr-4 > a > img', htmlResult).attr('src') ?? ""
+                            title: createIconText({ text: decodeHTMLEntity($('div.latest-updates-name > a', htmlResult).text()) }),
+                            subtitleText: createIconText({ text: decodeHTMLEntity($('div.latest-updates-content', htmlResult).children().first().text()) }),
+                            image: $('div.latest-updates-img > a > img', htmlResult).attr('src') ?? ""
                         }))
                         addedIds.push(id)
                     }
@@ -272,33 +256,33 @@ export class LightNovelReader extends Source {
         })
         const response = await this.requestManager.schedule(request, REQUEST_RETRIES)
         const $ = this.cheerio.load(response.data)
-        const lastPage = parseInt($('nav.pagination > a.pagination__item').last().attr('href')?.split('/').pop() ?? "1")
+        const lastPage = parseInt($('nav.cm-pagination').children().last().attr('href')?.split('/').pop() ?? "1")
         const results: MangaTile[] = []
         const addedIds: string[] = metadata?.addedIds ?? []
         if(homepageSectionId.startsWith("ranking")) {
-            const htmlResults = $('div.flex-1 > div.mb-4').toArray()
+            const htmlResults = $('div.ranking-category > ul').children().toArray()
             for(let htmlResult of htmlResults) {
-                const id = $('div.border-gray-200 > a', htmlResult).attr('href')?.substring(1) ?? ""
+                const id = $('div.category-img > a', htmlResult).attr('href')?.substring(1) ?? ""
                 if(!addedIds.includes(id)) {
                     results.push(createMangaTile({
                         id: id,
-                        title: createIconText({ text: decodeHTMLEntity($('div.border-gray-200 > a', htmlResult).text()) }),
-                        image: $('div.items-stretch > a > img', htmlResult).attr('src') ?? ""
+                        title: createIconText({ text: decodeHTMLEntity($('div.category-name > a', htmlResult).text()) }),
+                        image: $('div.category-img > a > img', htmlResult).attr('src') ?? ""
                     }))
                     addedIds.push(id)
                 }
             }
         } 
         else {
-            const htmlResults = $('div.flex-1 > div.my-4 > div.gap-4').toArray()
+            const htmlResults = $('div.latest-updates > ul').children().toArray()
             for(let htmlResult of htmlResults) {
-                const id = $('div.items-center > div.mr-4 > a', htmlResult).attr('href')?.substring(1) ?? ""
+                const id = $('div.latest-updates-name > a', htmlResult).attr('href')?.substring(1) ?? ""
                 if(!addedIds.includes(id)) {
                     results.push(createMangaTile({
                         id: id,
-                        title: createIconText({ text: decodeHTMLEntity($('div.items-center > div.flex > h2 > a', htmlResult).text()) }),
-                        subtitleText: createIconText({ text: decodeHTMLEntity($('a.truncate', htmlResult).text()) }),
-                        image: $('div.items-center > div.mr-4 > a > img', htmlResult)?.attr('src') ?? ""
+                        title: createIconText({ text: decodeHTMLEntity($('div.latest-updates-name > a', htmlResult).text()) }),
+                        subtitleText: createIconText({ text: decodeHTMLEntity($('div.latest-updates-content', htmlResult).children().first().text()) }),
+                        image: $('div.latest-updates-img > a > img', htmlResult).attr('src') ?? ""
                     }))
                     addedIds.push(id)
                 }
@@ -312,10 +296,16 @@ export class LightNovelReader extends Source {
     override getMangaShareUrl(mangaId: string): string {
         return `${WEBSITE_URL}/${mangaId}`
     }
+    override getCloudflareBypassRequest(): Request {
+        return createRequestObject({
+            url: WEBSITE_URL,
+            method: "GET"
+        })
+    }
 }
 
 export const LightNovelReaderInfo: SourceInfo = {
-    version: '1.1.3',
+    version: '1.2.3',
     name: 'LightNovelReader',
     icon: 'icon.png',
     author: 'JimIsWayTooEpic',
